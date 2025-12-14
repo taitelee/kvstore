@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"sort"
 	"sync"
+	"fmt"
 )
 
 // NodeID identifies a node on the ring
@@ -41,6 +42,22 @@ func NewRing(replicationFactor int) Ring {
 func (r *ring) AddNode(id NodeID, weight int) {
     r.mu.Lock()
     defer r.mu.Unlock()
+
+	for i := 0; i < weight; i++ {
+		virtualID := fmt.Sprintf("%s#%d", id, i)
+		
+		h := hashID(virtualID)
+
+		r.entries = append(r.entries, entry{
+			hash:	h,
+			id:		id,
+		})
+	}
+
+	// keep entries sorted so we can binary search.
+    sort.Slice(r.entries, func(i, j int) bool {
+        return r.entries[i].hash < r.entries[j].hash
+    })
 }
 
 // remove all virtual nodes belonging to a physical node
@@ -48,6 +65,14 @@ func (r *ring) RemoveNode(id NodeID) {
     r.mu.Lock()
     defer r.mu.Unlock()
 
+    kept := r.entries[:0] // keep same capacity as r, but with length zero
+	// NOTE: splices keep a reference to the original array, and the array exists at least one splice references it
+    for _, e := range r.entries {
+        if e.id != id {
+            kept = append(kept, e)
+        }
+    }
+    r.entries = kept
 }
 
 func (r *ring) GetPrimary(key string) NodeID {
@@ -66,6 +91,7 @@ func (r *ring) Nodes() []NodeID {
 }
 
 func hashID(s string) uint32 {
-    r.mu.Lock()
-    defer r.mu.Unlock()
+	h := fnv.New32a()
+    _, _ = h.Write([]byte(s))
+    return h.Sum32()	
 }
