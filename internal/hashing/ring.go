@@ -76,8 +76,25 @@ func (r *ring) RemoveNode(id NodeID) {
 }
 
 func (r *ring) GetPrimary(key string) NodeID {
-    r.mu.Lock()
-    defer r.mu.Unlock()
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+
+    if len(r.entries) == 0 {
+        return ""
+    }
+
+    keyHash := hashID(key)
+
+	// perform binary search to get primary node
+	idx := sort.Search(len(r.entries), func(i int) bool {
+        return r.entries[i].hash >= keyHash
+    })
+
+    if idx == len(r.entries) {
+        idx = 0
+    }
+
+    return r.entries[idx].id // return primary node
 }
 
 func (r *ring) GetReplicas(key string, n int) []NodeID {
