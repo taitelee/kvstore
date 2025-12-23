@@ -86,6 +86,7 @@ func (r *ring) GetPrimary(key string) NodeID {
     keyHash := hashID(key)
 
 	// perform binary search to get primary node
+    // predicate is r.entries[i].hash >= hash, and search until we find boundary between the predicate being false and true 
 	idx := sort.Search(len(r.entries), func(i int) bool {
         return r.entries[i].hash >= keyHash
     })
@@ -97,9 +98,45 @@ func (r *ring) GetPrimary(key string) NodeID {
     return r.entries[idx].id // return primary node
 }
 
+
+// replicas are not nodes, they are normal key-value pairs stored in other nodes other than the primary
 func (r *ring) GetReplicas(key string, n int) []NodeID {
     r.mu.Lock()
     defer r.mu.Unlock()
+
+    if len(r.entries) == 0 || n <= 0 {
+        return nil
+    }
+
+    keyHash := hashID(key)
+
+    // we could (with the way we've implemented locking) call GetPrimary here, but not best practice for deadlock safety and idiomatic Golang lol
+    start := sort.Search(len(r.entries), func(i int) bool {
+        return r.entries[i].hash >= keyHash
+    })
+
+    if start == len(r.entries) {
+        start = 0
+    }
+
+    replicas := make([]NodeID, 0, n) // splice for replica set (holds physical nodes)
+    seen := make(map[NodeID]struct{}) // deduplication of physical nodes
+
+    for i := 0; len(replicas) < n && i < len(r.entries); i++ {
+        idx := (start + i) % len(r.entries)
+        nodeID := r.entries[idx].id
+
+        // Deduplicate physical nodes
+        if _, ok := seen[nodeID]; ok {
+            continue
+        }
+
+        seen[nodeID] = struct{}{}
+        replicas = append(replicas, nodeID)
+    }
+
+    return replicas
+    
 }
 
 func (r *ring) Nodes() []NodeID {
