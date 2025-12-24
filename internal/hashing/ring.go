@@ -142,6 +142,19 @@ func (r *ring) GetReplicas(key string, n int) []NodeID {
 func (r *ring) Nodes() []NodeID {
     r.mu.Lock()
     defer r.mu.Unlock()
+
+    nodes := make([]NodeID, 0)
+    seen := make(map[NodeID]struct{})
+
+    for _, e := range(r.entries) {
+        if _, ok := seen[e.id]; ok {
+            continue
+        }
+        seen[e.id] = struct{}{}
+        nodes = append(nodes, e.id)
+    }
+
+    return nodes
 }
 
 func hashID(s string) uint32 {
