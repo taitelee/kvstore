@@ -1,3 +1,5 @@
+// storing actual data here
+
 package kv
 
 import (
@@ -36,7 +38,7 @@ type EngineConfig struct {
 	EnableReplica bool
 }
 
-// Engine is the authoritative local state machine for a node.
+// Engine is the authoritative local state machine for a node. It includes engine config, store, wal, etc.
 type Engine struct {
 	mu sync.RWMutex
 
@@ -107,7 +109,7 @@ func (e *Engine) Put(ctx context.Context, key string, value []byte) error {
 	}
 
 	e.mu.Lock()
-	e.applyNoWal(op)
+	e.applyNoWal(op) // actual change in memory state
 	e.mu.Unlock()
 
 	if e.cfg.EnableReplica && e.repl != nil {
