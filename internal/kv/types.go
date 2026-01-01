@@ -1,5 +1,7 @@
 package kv
 
+// defining a language of state changes in the system
+
 // OpType represents a state mutating operation (also reads are not operations)
 type OpType int
 
@@ -58,16 +60,24 @@ type Operation struct {
 // IsPut returns true if this operation is a PUT.
 func (op Operation) IsPut() bool {
 	// TODO: Return true when op.Type indicates a put.
-	return false
+	return op.Type == OpPut
 }
 
 // IsDelete returns true if this operation is a DELETE.
 func (op Operation) IsDelete() bool {
 	// TODO: Return true when op.Type indicates a delete.
-	return false
+	
+	return op.Type == OpDelete
 }
 
 
+/*
+NOTE: updates are just PUT requests. PUT can happen after a delete even if the PUT request arrives first because 
+deletes do not block future writes unless higher level logic enforces that rule.
+
+The system does not rely on arrival order. Each operation is assigned a version when it is created, and replicas 
+apply operations according to version ordering, not delivery timing.
+*/
 
 // Record represents the latest known state for a key.
 // Records represent materialized state, not history.
@@ -79,12 +89,7 @@ type Record struct {
 
 // IsDeleted returns true if this record represents a deleted key.
 func (r Record) IsDeleted() bool {
-	// TODO: Decide what condition denotes a deletion.
-	
-	// Think about:
-	// - Should this depend only on Tombstone?
-	// - Should Value be ignored when deleted?
-	return false
+	return r.Tombstone
 }
 
 // Invariants??
